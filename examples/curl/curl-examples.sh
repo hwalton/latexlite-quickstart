@@ -1,7 +1,7 @@
 #!/bin/bash
 
 API_KEY="demo-key-1234567890abcdef"
-BASE_URL="https://latexlive.com"
+BASE_URL="https://latexlite.com"
 
 echo "🚀 LaTeX API Examples"
 
@@ -26,7 +26,7 @@ curl -H "Authorization: Bearer $API_KEY" \
   $BASE_URL/v1/renders/$JOB_ID/pdf \
   -o simple.pdf
 
-echo "✅ Downloaded simple.pdf"
+echo "Downloaded simple.pdf"
 
 # Business letter
 echo "3. Creating business letter..."
@@ -52,4 +52,4 @@ echo "4. Checking API health..."
 curl -s -H "Authorization: Bearer $API_KEY" \
   $BASE_URL/health | jq '.'
 
-echo "✅ Examples complete!"
+echo "Examples complete!"

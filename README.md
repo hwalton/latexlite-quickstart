@@ -119,7 +119,7 @@ curl -H "Authorization: Bearer demo-key-1234567890abcdef" \
 ```
 
 
-## ❌ Error Handling
+## Error Handling
 
 | Status | Meaning |
 |--------|---------|
@@ -128,7 +128,7 @@ curl -H "Authorization: Bearer demo-key-1234567890abcdef" \
 | `400` | Invalid template or data |
 | `409` | PDF not ready (still processing) |
 
-## 🎯 Best Practices
+## Best Practices
 
 1. **Handle async processing** - Jobs are queued and processed in background
 2. **Escape LaTeX characters** - `\` becomes `\\` in JSON strings  
@@ -136,6 +136,6 @@ curl -H "Authorization: Bearer demo-key-1234567890abcdef" \
 4. **Cache PDFs** - Jobs expire after 24 hours
 5. **Handle rate limits** - Respect the `X-RateLimit-*` headers
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

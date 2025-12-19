@@ -47,21 +47,21 @@ func main() {
 		"simple.pdf",
 	)
 	if err != nil {
-		log.Printf("❌ Simple example failed: %v", err)
+		log.Printf("Simple example failed: %v", err)
 	} else {
-		fmt.Printf("✅ Success: %s\n\n", simpleJob.ID)
+		fmt.Printf("Success: %s\n\n", simpleJob.ID)
 	}
 
 	// Example 2: Invoice
-	fmt.Println("🧾 Example 2: Invoice")
+	fmt.Println("Example 2: Invoice")
 	invoiceJob, err := client.CreateAndWait(invoiceTemplate, invoiceData, "invoice.pdf")
 	if err != nil {
-		log.Printf("❌ Invoice example failed: %v", err)
+		log.Printf("Invoice example failed: %v", err)
 	} else {
-		fmt.Printf("✅ Success: %s\n\n", invoiceJob.ID)
+		fmt.Printf("Success: %s\n\n", invoiceJob.ID)
 	}
 
-	fmt.Println("🎉 All examples complete! Check the generated PDF files.")
+	fmt.Println("All examples complete! Check the generated PDF files.")
 }
 
 // LaTeX client implementation

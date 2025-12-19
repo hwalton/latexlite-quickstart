@@ -10,7 +10,6 @@ Generate professional PDFs from LaTeX templates with a simple REST API.
 export LATEX_API_KEY="demo-key-1234567890abcdef"
 export LATEX_API_URL="https://your-api-domain.com"
 
-# Or get your own key at: https://your-api-domain.com/signup
 ```
 
 ### 2. First PDF in 30 Seconds

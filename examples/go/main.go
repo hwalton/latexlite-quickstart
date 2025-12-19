@@ -8,13 +8,30 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
 const (
-	DefaultURL = "http://localhost:8080"
+	DefaultURL = "https://latexlite.com"
 	DemoAPIKey = "demo-key-1234567890abcdef"
 )
+
+func escape(s string) string {
+	replacer := strings.NewReplacer(
+		"&", `\&`,
+		"%", `\%`,
+		"$", `\$`,
+		"#", `\#`,
+		"_", `\_`,
+		"{", `\{`,
+		"}", `\}`,
+		"~", `\textasciitilde{}`,
+		"^", `\^{}`,
+		"\\", `\textbackslash{}`,
+	)
+	return replacer.Replace(s)
+}
 
 func main() {
 	// Get API credentials from environment or use defaults
@@ -25,12 +42,19 @@ func main() {
 	fmt.Printf("API URL: %s\n", apiURL)
 	fmt.Printf("API Key: %s...\n\n", apiKey[:10])
 
+	// Escape LaTeX special characters in invoice item descriptions
+	for _, item := range invoiceData["Items"].([]map[string]interface{}) {
+		item["Description"] = escape(item["Description"].(string))
+	}
+
 	client := NewLatexClient(apiURL, apiKey)
 
 	// Example 1: Simple document
 	fmt.Println("📄 Example 1: Simple Document")
 	simpleJob, err := client.CreateAndWait(
-		`\documentclass{article}\begin{document}\title{ {{.Title}} }\author{ {{.Author}} }\maketitle{{.Content}}\end{document}`,
+		`\documentclass{article}\begin{document}\title{ {{.Title}} }\author{ {{.Author}} }\maketitle
+
+{{.Content}}\end{document}`,
 		map[string]interface{}{
 			"Title":   "My First PDF",
 			"Author":  "Go Client",
@@ -76,6 +100,7 @@ type RenderJob struct {
 	Error     *struct {
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
+	Log string `json:"log,omitempty"` // <-- Add this line
 }
 
 type APIResponse struct {
@@ -100,7 +125,9 @@ func (c *LatexClient) CreateAndWait(template string, data map[string]interface{}
 	if err != nil {
 		return nil, fmt.Errorf("create render: %w", err)
 	}
-
+	if job == nil {
+		return nil, fmt.Errorf("create render: job is nil (API error or malformed response)")
+	}
 	fmt.Printf("  Job created: %s\n", job.ID)
 
 	// Wait for completion
@@ -110,7 +137,15 @@ func (c *LatexClient) CreateAndWait(template string, data map[string]interface{}
 	}
 
 	if job.Status != "succeeded" {
-		return nil, fmt.Errorf("job failed: %s", job.Error.Message)
+		errMsg := "unknown error"
+		if job.Error != nil {
+			errMsg = job.Error.Message
+		}
+		// Show LaTeX log if present
+		if job.Log != "" {
+			errMsg += "\n\nLaTeX log:\n" + job.Log
+		}
+		return nil, fmt.Errorf("job failed: %s", errMsg)
 	}
 
 	// Download PDF
@@ -242,9 +277,15 @@ const invoiceTemplate = `\documentclass{article}
 \vspace{1em}
 \noindent\textbf{Bill To:} \\{{.CustomerName}} \\{{.CustomerAddress}}
 \vspace{2em}
-\begin{tabular}{|l|r|}\hline\textbf{Description} & \textbf{Amount} \\\hline
-{{range .Items}}{{.Description}} & \${{.Amount}} \\\hline
-{{end}}\multicolumn{1}{|r|}{\textbf{Total:}} & \textbf{\${{.Total}}} \\\hline
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Description} & \textbf{Amount} \\
+\hline
+{{range .Items}}{{.Description}} & \${{.Amount}} \\
+\hline
+{{end}}
+\multicolumn{1}{|r|}{\textbf{Total:}} & \textbf{\${{.Total}}} \\
+\hline
 \end{tabular}
 \vspace{2em}
 Thank you for your business!

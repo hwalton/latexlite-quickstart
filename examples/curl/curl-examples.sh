@@ -1,7 +1,7 @@
 #!/bin/bash
 
 API_KEY="demo-key-1234567890abcdef"
-BASE_URL="http://localhost:8080"
+BASE_URL="https://latexlive.com"
 
 echo "🚀 LaTeX API Examples"
 

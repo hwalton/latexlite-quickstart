@@ -17,22 +17,6 @@ const (
 	DemoAPIKey = "demo-key-1234567890abcdef"
 )
 
-func escape(s string) string {
-	replacer := strings.NewReplacer(
-		"&", `\&`,
-		"%", `\%`,
-		"$", `\$`,
-		"#", `\#`,
-		"_", `\_`,
-		"{", `\{`,
-		"}", `\}`,
-		"~", `\textasciitilde{}`,
-		"^", `\^{}`,
-		"\\", `\textbackslash{}`,
-	)
-	return replacer.Replace(s)
-}
-
 func main() {
 	// Get API credentials from environment or use defaults
 	apiURL := getEnv("LATEX_API_URL", DefaultURL)
@@ -265,6 +249,22 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func escape(s string) string {
+	replacer := strings.NewReplacer(
+		"&", `\&`,
+		"%", `\%`,
+		"$", `\$`,
+		"#", `\#`,
+		"_", `\_`,
+		"{", `\{`,
+		"}", `\}`,
+		"~", `\textasciitilde{}`,
+		"^", `\^{}`,
+		"\\", `\textbackslash{}`,
+	)
+	return replacer.Replace(s)
 }
 
 const invoiceTemplate = `\documentclass{article}

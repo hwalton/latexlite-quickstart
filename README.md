@@ -22,7 +22,7 @@ POST /v1/renders
 **Request:**
 ```json
 {
-  "template": "\\documentclass{article}\n\\begin{document}\nHello {{.Name}}!\n\\end{document}",
+  "template": "\\documentclass{article}\n\\begin{document}\nHello [[.Name]]!\n\\end{document}",
   "data": {
     "Name": "World"
   }
@@ -92,16 +92,16 @@ curl -X POST https://latexlive.com/v1/renders \
   -H "Authorization: Bearer demo-key-1234567890abcdef" \
   -H "Content-Type: application/json" \
   -d '{
-    "template": "\\documentclass{article}\n\\begin{document}\nHello World!\n\\end{document}",
+    "template": "\\documentclass{article}\\begin{document}Hello World!\\end{document}",
     "data": {}
   }'
 
-# LaTeX with Go templating
+# LaTeX with Go templating and [[ ]] delimiters
 curl -X POST https://latexlive.com/v1/renders \
   -H "Authorization: Bearer demo-key-1234567890abcdef" \
   -H "Content-Type: application/json" \
   -d '{
-    "template": "\\documentclass{article}\n\\begin{document}\nInvoice for {{.CustomerName}}\nAmount: ${{.Amount}}\n\\end{document}",
+    "template": "\\documentclass{article}\\begin{document}Invoice for [[.CustomerName]] \\\\ Amount: \\$[[.Amount]]\\end{document}",
     "data": {
       "CustomerName": "John Doe",
       "Amount": "1250.00"

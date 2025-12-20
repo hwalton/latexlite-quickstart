@@ -36,9 +36,9 @@ func main() {
 	// Example 1: Simple document
 	fmt.Println("📄 Example 1: Simple Document")
 	simpleJob, err := client.CreateAndWait(
-		`\documentclass{article}\begin{document}\title{ {{.Title}} }\author{ {{.Author}} }\maketitle
+		`\documentclass{article}\begin{document}\title{ [[.Title]] }\author{ [[.Author]] }\maketitle
 
-{{.Content}}\end{document}`,
+[[.Content]] \end{document}`,
 		map[string]interface{}{
 			"Title":   "My First PDF",
 			"Author":  "Go Client",
@@ -267,28 +267,42 @@ func escape(s string) string {
 	return replacer.Replace(s)
 }
 
+// ...existing code...
 const invoiceTemplate = `\documentclass{article}
 \usepackage[margin=1in]{geometry}
 \begin{document}
 \begin{center}{\Large \textbf{INVOICE}}\end{center}
 \vspace{1em}
-\noindent\textbf{Invoice \#:} {{.InvoiceNumber}} \\
-\textbf{Date:} {{.Date}}
+
+\noindent\textbf{Invoice \#:} [[.InvoiceNumber]] \\
+\textbf{Date:} [[.Date]]
+
 \vspace{1em}
-\noindent\textbf{Bill To:} \\{{.CustomerName}} \\{{.CustomerAddress}}
+\noindent\textbf{Bill To:} \\
+[[.CustomerName]] \\
+[[.CustomerAddress]]
+
 \vspace{2em}
-\begin{tabular}{|l|r|}
+
+% --- Table starts here ---
+\vspace{1em}
+\begin{tabular}{|p{8cm}|r|}
 \hline
 \textbf{Description} & \textbf{Amount} \\
 \hline
-{{range .Items}}{{.Description}} & \${{.Amount}} \\
+[[range .Items]] [[.Description]] & \$[[.Amount]] \\
 \hline
-{{end}}
-\multicolumn{1}{|r|}{\textbf{Total:}} & \textbf{\${{.Total}}} \\
+[[end]]
+\textbf{Total:} & \textbf{\$[[.Total]]} \\
 \hline
 \end{tabular}
 \vspace{2em}
-Thank you for your business!
+% --- Table ends here ---
+
+\vspace{2em}
+
+\noindent Thank you for your business!
+
 \end{document}`
 
 var invoiceData = map[string]interface{}{

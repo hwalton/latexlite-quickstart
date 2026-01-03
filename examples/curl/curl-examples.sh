@@ -1,6 +1,6 @@
 #!/bin/bash
 
-API_KEY="demo-key-1234567890abcdef"
+API_KEY="<your-api-key>"
 BASE_URL="https://latexlite.com"
 
 echo "🚀 LaTeX API Examples"

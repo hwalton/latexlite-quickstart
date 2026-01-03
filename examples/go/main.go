@@ -14,7 +14,7 @@ import (
 
 const (
 	DefaultURL = "https://latexlite.com"
-	DemoAPIKey = "demo-key-1234567890abcdef"
+	DemoAPIKey = "<your-api-key>"
 )
 
 func main() {

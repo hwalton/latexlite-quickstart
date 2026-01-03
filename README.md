@@ -4,11 +4,15 @@ Generate professional PDFs from LaTeX templates with a simple REST API.
 
 ## 🚀 Quick Start
 
-### 1. Get API Access
+### 1. Sign Up for an API Key
+
+Visit [latexlite.com/get-demo-key](https://latexlite.com/get-demo-key) for a free demo API key. Use this in place of `<your-api-key>` in the examples below.
+
+### 2. Get API Access
 ```bash
 # Demo API key (rate limited)
-export LATEX_API_KEY="demo-key-1234567890abcdef"
-export LATEX_API_URL="https://latexlive.com"
+export LATEX_API_KEY="<your-api-key>"
+export LATEX_API_URL="https://latexlite.com"
 ```
 
 ## Endpoints
@@ -88,8 +92,8 @@ Returns the compiled PDF file when status is "succeeded".
 
 ```bash
 # Simple LaTeX without templating
-curl -X POST https://latexlive.com/v1/renders \
-  -H "Authorization: Bearer demo-key-1234567890abcdef" \
+curl -X POST https://latexlite.com/v1/renders \
+  -H "Authorization: Bearer <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
     "template": "\\documentclass{article}\\begin{document}Hello World!\\end{document}",
@@ -97,8 +101,8 @@ curl -X POST https://latexlive.com/v1/renders \
   }'
 
 # LaTeX with Go templating and [[ ]] delimiters
-curl -X POST https://latexlive.com/v1/renders \
-  -H "Authorization: Bearer demo-key-1234567890abcdef" \
+curl -X POST https://latexlite.com/v1/renders \
+  -H "Authorization: Bearer <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
     "template": "\\documentclass{article}\\begin{document}Invoice for [[.CustomerName]] \\\\ Amount: \\$[[.Amount]]\\end{document}",
@@ -109,12 +113,12 @@ curl -X POST https://latexlive.com/v1/renders \
   }'
 
 # Check status
-curl -H "Authorization: Bearer demo-key-1234567890abcdef" \
-  https://latexlive.com/v1/renders/job_1234567890
+curl -H "Authorization: Bearer <your-api-key>" \
+  https://latexlite.com/v1/renders/job_1234567890
 
 # Download PDF when ready
-curl -H "Authorization: Bearer demo-key-1234567890abcdef" \
-  https://latexlive.com/v1/renders/job_1234567890/pdf \
+curl -H "Authorization: Bearer <your-api-key>" \
+  https://latexlite.com/v1/renders/job_1234567890/pdf \
   -o output.pdf
 ```
 

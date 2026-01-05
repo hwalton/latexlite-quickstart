@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,12 +20,12 @@ const (
 
 func main() {
 	// Get API credentials from environment or use defaults
-	apiURL := getEnv("LATEX_API_URL", DefaultURL)
-	apiKey := getEnv("LATEX_API_KEY", DemoAPIKey)
+	apiURL := getEnv("API_URL", DefaultURL)
+	apiKey := getEnv("API_KEY", DemoAPIKey)
 
 	fmt.Printf("🚀 LaTeX Lite API Go Client\n")
 	fmt.Printf("API URL: %s\n", apiURL)
-	fmt.Printf("API Key: %s...\n\n", apiKey[:10])
+	fmt.Printf("API Key: %s...\n\n", previewKey(apiKey, 10))
 
 	// Escape LaTeX special characters in invoice item descriptions
 	for _, item := range invoiceData["Items"].([]map[string]interface{}) {
@@ -33,8 +34,20 @@ func main() {
 
 	client := NewLatexClient(apiURL, apiKey)
 
-	// Example 1: Simple document
-	fmt.Println("📄 Example 1: Simple Document")
+	// Example 1: Sync render (no polling)
+	fmt.Println("⚡ Example 1: Sync Render (renders-sync)")
+	if err := client.RenderSyncToFile(
+		`\documentclass{article}\begin{document}Hello, [[.Who]]!\end{document}`,
+		map[string]interface{}{"Who": "sync world"},
+		"sync.pdf",
+	); err != nil {
+		log.Printf("Sync example failed: %v", err)
+	} else {
+		fmt.Printf("  PDF downloaded: %s\n\n", "sync.pdf")
+	}
+
+	// Example 2: Simple document
+	fmt.Println("📄 Example 2: Simple Document")
 	simpleJob, err := client.CreateAndWait(
 		`\documentclass{article}\begin{document}\title{ [[.Title]] }\author{ [[.Author]] }\maketitle
 
@@ -52,8 +65,8 @@ func main() {
 		fmt.Printf("Success: %s\n\n", simpleJob.ID)
 	}
 
-	// Example 2: Invoice
-	fmt.Println("Example 2: Invoice")
+	// Example 3: Invoice
+	fmt.Println("Example 3: Invoice")
 	invoiceJob, err := client.CreateAndWait(invoiceTemplate, invoiceData, "invoice.pdf")
 	if err != nil {
 		log.Printf("Invoice example failed: %v", err)
@@ -84,7 +97,7 @@ type RenderJob struct {
 	Error     *struct {
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
-	Log string `json:"log,omitempty"` // <-- Add this line
+	Log string `json:"log,omitempty"`
 }
 
 type APIResponse struct {
@@ -95,12 +108,84 @@ type APIResponse struct {
 	} `json:"error,omitempty"`
 }
 
+type SyncRenderResponse struct {
+	Success bool `json:"success"`
+	Data    *struct {
+		PDFBase64 string `json:"pdf_base64"`
+	} `json:"data,omitempty"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
+}
+
 func NewLatexClient(baseURL, apiKey string) *LatexClient {
 	return &LatexClient{
 		BaseURL: baseURL,
 		APIKey:  apiKey,
 		Client:  &http.Client{Timeout: 60 * time.Second},
 	}
+}
+
+// RenderSyncToFile calls POST /v1/renders-sync and writes the PDF to filename.
+// It requests application/pdf (recommended). If the server responds with JSON,
+// it will parse pdf_base64 and write it to filename.
+func (c *LatexClient) RenderSyncToFile(template string, data map[string]interface{}, filename string) error {
+	req := RenderRequest{Template: template, Data: data}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/v1/renders-sync", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/pdf")
+
+	resp, err := c.Client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Non-2xx: API returns JSON error body.
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		msg := readAPIErrorMessage(resp.Body)
+		if msg == "" {
+			msg = resp.Status
+		}
+		return fmt.Errorf("sync render failed: %s", msg)
+	}
+
+	ct := resp.Header.Get("Content-Type")
+	// If we got PDF bytes, stream to file.
+	if strings.HasPrefix(ct, "application/pdf") {
+		return writeBodyToFile(resp.Body, filename)
+	}
+
+	// Otherwise attempt JSON envelope with pdf_base64.
+	var apiResp SyncRenderResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return fmt.Errorf("sync render: expected PDF but got %q and JSON decode failed: %w", ct, err)
+	}
+	if !apiResp.Success {
+		if apiResp.Error != nil && apiResp.Error.Message != "" {
+			return fmt.Errorf("sync render API error: %s", apiResp.Error.Message)
+		}
+		return fmt.Errorf("sync render API error: unknown error")
+	}
+	if apiResp.Data == nil || apiResp.Data.PDFBase64 == "" {
+		return fmt.Errorf("sync render: missing pdf_base64 in response")
+	}
+
+	pdfBytes, err := base64.StdEncoding.DecodeString(apiResp.Data.PDFBase64)
+	if err != nil {
+		return fmt.Errorf("sync render: decode pdf_base64: %w", err)
+	}
+	return os.WriteFile(filename, pdfBytes, 0o644)
 }
 
 func (c *LatexClient) CreateAndWait(template string, data map[string]interface{}, filename string) (*RenderJob, error) {
@@ -161,10 +246,15 @@ func (c *LatexClient) CreateRender(template string, data map[string]interface{})
 	defer resp.Body.Close()
 
 	var apiResp APIResponse
-	json.NewDecoder(resp.Body).Decode(&apiResp)
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
 
 	if !apiResp.Success {
-		return nil, fmt.Errorf("API error: %s", apiResp.Error.Message)
+		if apiResp.Error != nil && apiResp.Error.Message != "" {
+			return nil, fmt.Errorf("API error: %s", apiResp.Error.Message)
+		}
+		return nil, fmt.Errorf("API error: unknown error")
 	}
 
 	return apiResp.Data, nil
@@ -207,10 +297,15 @@ func (c *LatexClient) GetRender(jobID string) (*RenderJob, error) {
 	defer resp.Body.Close()
 
 	var apiResp APIResponse
-	json.NewDecoder(resp.Body).Decode(&apiResp)
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
 
 	if !apiResp.Success {
-		return nil, fmt.Errorf("API error: %s", apiResp.Error.Message)
+		if apiResp.Error != nil && apiResp.Error.Message != "" {
+			return nil, fmt.Errorf("API error: %s", apiResp.Error.Message)
+		}
+		return nil, fmt.Errorf("API error: unknown error")
 	}
 
 	return apiResp.Data, nil
@@ -251,6 +346,50 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+func previewKey(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
+}
+
+func writeBodyToFile(r io.Reader, filename string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, r)
+	return err
+}
+
+func readAPIErrorMessage(r io.Reader) string {
+	var e struct {
+		Success bool `json:"success"`
+		Error   *struct {
+			Message string `json:"message"`
+		} `json:"error,omitempty"`
+	}
+	b, _ := io.ReadAll(r)
+	if len(b) == 0 {
+		return ""
+	}
+	if err := json.Unmarshal(b, &e); err == nil {
+		if e.Error != nil {
+			return e.Error.Message
+		}
+	}
+	// fallback: include raw body (trimmed) if not JSON
+	s := strings.TrimSpace(string(b))
+	if len(s) > 500 {
+		s = s[:500] + "…"
+	}
+	return s
+}
+
 func escape(s string) string {
 	replacer := strings.NewReplacer(
 		"&", `\&`,
@@ -267,7 +406,6 @@ func escape(s string) string {
 	return replacer.Replace(s)
 }
 
-// ...existing code...
 const invoiceTemplate = `\documentclass{article}
 \usepackage[margin=1in]{geometry}
 \begin{document}

@@ -1,13 +1,38 @@
 #!/bin/bash
+set -euo pipefail
 
 API_KEY="<your-api-key>"
 BASE_URL="https://latexlite.com"
 
 echo "🚀 LaTeX API Examples"
 
-# Simple document
-echo "1. Creating simple document..."
-RESPONSE=$(curl -s -X POST $BASE_URL/v1/renders \
+# 1) Sync render (no polling) — writes PDF directly
+echo "1. Sync render (renders-sync) -> sync.pdf ..."
+curl -sS -X POST "$BASE_URL/v1/renders-sync" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -o sync.pdf \
+  -d '{
+    "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
+    "data": { "Who": "sync world" }
+  }'
+
+echo "Downloaded sync.pdf"
+
+# (Optional) Sync render returning JSON (base64 PDF)
+echo "1b. Sync render (renders-sync) JSON response ..."
+curl -sS -X POST "$BASE_URL/v1/renders-sync" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
+    "data": { "Who": "json world" }
+  }' | jq '.'
+
+# 2) Async: Simple document
+echo "2. Creating simple document (async)..."
+RESPONSE=$(curl -sS -X POST "$BASE_URL/v1/renders" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -15,22 +40,22 @@ RESPONSE=$(curl -s -X POST $BASE_URL/v1/renders \
     "data": {"Name": "API User"}
   }')
 
-echo $RESPONSE | jq '.'
-JOB_ID=$(echo $RESPONSE | jq -r '.data.id')
+echo "$RESPONSE" | jq '.'
+JOB_ID=$(echo "$RESPONSE" | jq -r '.data.id')
 
 # Wait and download
 echo "2. Waiting for completion..."
 sleep 2
 
-curl -H "Authorization: Bearer $API_KEY" \
-  $BASE_URL/v1/renders/$JOB_ID/pdf \
+curl -sS -H "Authorization: Bearer $API_KEY" \
+  "$BASE_URL/v1/renders/$JOB_ID/pdf" \
   -o simple.pdf
 
 echo "Downloaded simple.pdf"
 
-# Business letter
-echo "3. Creating business letter..."
-LETTER_RESPONSE=$(curl -s -X POST $BASE_URL/v1/renders \
+# 3) Async: Business letter
+echo "3. Creating business letter (async)..."
+LETTER_RESPONSE=$(curl -sS -X POST "$BASE_URL/v1/renders" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -39,29 +64,26 @@ LETTER_RESPONSE=$(curl -s -X POST $BASE_URL/v1/renders \
     "YourName": "John Smith",
     "YourAddress": "123 Business St\\\\New York, NY 10001",
     "RecipientName": "Jane Doe",
-    "RecipientAddress": "456 Client Ave\\\\Boston, MA 02101",
+    "RecipientAddress": "556 Client Ave\\\\Boston, MA 02101",
     "Message": "Thank you for your interest in our LaTeX API service. This letter demonstrates our template capabilities."
   }
 }')
 
+echo "$LETTER_RESPONSE" | jq '.'
+LETTER_ID=$(echo "$LETTER_RESPONSE" | jq -r '.data.id')
 
-echo $LETTER_RESPONSE | jq '.'
-LETTER_ID=$(echo $LETTER_RESPONSE | jq -r '.data.id')
-
-# Wait for the letter to be ready
-echo "4. Waiting for completion..."
+echo "3. Waiting for completion..."
 sleep 2
 
-# Download the letter PDF
-curl -H "Authorization: Bearer $API_KEY" \
-  $BASE_URL/v1/renders/$LETTER_ID/pdf \
+curl -sS -H "Authorization: Bearer $API_KEY" \
+  "$BASE_URL/v1/renders/$LETTER_ID/pdf" \
   -o letter.pdf
 
 echo "Downloaded letter.pdf"
 
-# Check health
-echo "5. Checking API health..."
-curl -s -H "Authorization: Bearer $API_KEY" \
-  $BASE_URL/health | jq '.'
+# 4) Check health
+echo "4. Checking API health..."
+curl -sS -H "Authorization: Bearer $API_KEY" \
+  "$BASE_URL/health" | jq '.'
 
 echo "Examples complete!"

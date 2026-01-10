@@ -81,8 +81,29 @@ curl -sS -H "Authorization: Bearer $API_KEY" \
 
 echo "Downloaded letter.pdf"
 
-# 4) Check health
-echo "4. Checking API health..."
+# 4) Sync math -> PNG
+echo "4. Sync math (math-sync) -> equation.png ..."
+curl -sS -X POST "${BASE_URL}/v1/math-sync" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -o equation.png \
+  -d '{
+    "math": "$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$"
+  }'
+echo "Downloaded equation.png"
+
+# 4b) Sync math -> JSON response
+echo "4b. Sync math (math-sync) JSON response ..."
+curl -sS -X POST "${BASE_URL}/v1/math-sync" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "math": "$E = mc^2$"
+  }' | jq '.'
+
+# 5) Check health
+echo "5. Checking API health..."
 curl -sS -H "Authorization: Bearer $API_KEY" \
   "${BASE_URL}/health" | jq '.'
 

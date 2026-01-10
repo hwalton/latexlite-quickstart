@@ -12,6 +12,7 @@ Visit [latexlite.com/get-demo-key](https://latexlite.com/get-demo-key) for a fre
 # Demo API key (rate limited)
 export API_KEY="<your-api-key>"
 export BASE_URL="https://latexlite.com"
+```
 
 ## When to use Sync vs Async
 
@@ -89,6 +90,17 @@ GET /v1/renders/{id}/pdf
 
 Returns the compiled PDF file when status is "succeeded".
 
+## Math (synchronous)
+
+### Render LaTeX math (sync)
+
+```bash
+POST /v1/math-sync
+```
+
+- Returns a PNG image by default (recommended for `curl -o equation.png`)
+- If you set **`Accept: application/json`**, it returns a JSON response (useful for programmatic handling)
+
 ## Job Status Values
 
 - `queued`: Job is waiting to be processed
@@ -158,7 +170,27 @@ curl -H "Authorization: Bearer ${API_KEY}" \
 curl -H "Authorization: Bearer ${API_KEY}" \
   "${BASE_URL}/v1/renders/job_1234567890/pdf" \
   -o output.pdf
+
+# Sync math: render LaTeX math and save as PNG
+curl -sS -X POST "${BASE_URL}/v1/math-sync" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -o equation.png \
+  -d '{
+    "math": "$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$"
+  }'
+
+# Sync math: request JSON response
+curl -sS -X POST "${BASE_URL}/v1/math-sync" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "math": "$E = mc^2$"
+  }'
 ```
+
+> Note: In JSON, backslashes must be escaped. That’s why LaTeX commands use `\\int`, `\\frac`, and `\\,` inside the JSON string.
 
 ## Error Handling
 

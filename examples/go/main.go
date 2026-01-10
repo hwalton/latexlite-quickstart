@@ -74,7 +74,24 @@ func main() {
 		fmt.Printf("Success: %s\n\n", invoiceJob.ID)
 	}
 
-	fmt.Println("All examples complete! Check the generated PDF files.")
+	// Example 4: Sync math -> PNG
+	fmt.Println("🧮 Example 4: Sync Math (math-sync) -> equation.png")
+	if err := client.MathSyncToFile(`$\int_0^1 x^2 \, dx = \frac{1}{3}$`, "equation.png"); err != nil {
+		log.Printf("Math sync PNG example failed: %v", err)
+	} else {
+		fmt.Printf("  PNG downloaded: %s\n\n", "equation.png")
+	}
+
+	// Example 5: Sync math -> JSON response (printed)
+	fmt.Println("🧮 Example 5: Sync Math (math-sync) JSON response")
+	if s, err := client.MathSyncJSON(`$E = mc^2$`); err != nil {
+		log.Printf("Math sync JSON example failed: %v", err)
+	} else {
+		fmt.Println(s)
+		fmt.Println()
+	}
+
+	fmt.Println("All examples complete! Check the generated PDF/PNG files.")
 }
 
 // LaTeX client implementation
@@ -118,12 +135,101 @@ type SyncRenderResponse struct {
 	} `json:"error,omitempty"`
 }
 
+type MathRequest struct {
+	Math string `json:"math"`
+}
+
 func NewLatexClient(baseURL, apiKey string) *LatexClient {
 	return &LatexClient{
 		BaseURL: baseURL,
 		APIKey:  apiKey,
 		Client:  &http.Client{Timeout: 60 * time.Second},
 	}
+}
+
+// MathSyncToFile calls POST /v1/math-sync and writes the PNG response to filename.
+// It requests image/png (recommended). If the server responds with JSON (e.g. an error),
+// it will return that as an error message.
+func (c *LatexClient) MathSyncToFile(math, filename string) error {
+	req := MathRequest{Math: math}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/v1/math-sync", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "image/png")
+
+	resp, err := c.Client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		msg := readAPIErrorMessage(resp.Body)
+		if msg == "" {
+			msg = resp.Status
+		}
+		return fmt.Errorf("math sync failed: %s", msg)
+	}
+
+	ct := resp.Header.Get("Content-Type")
+	if strings.HasPrefix(ct, "image/png") {
+		return writeBodyToFile(resp.Body, filename)
+	}
+
+	// Unexpected content type: surface response body for debugging.
+	b, _ := io.ReadAll(resp.Body)
+	s := strings.TrimSpace(string(b))
+	if s == "" {
+		s = resp.Status
+	}
+	return fmt.Errorf("math sync: expected image/png but got %q: %s", ct, s)
+}
+
+// MathSyncJSON calls POST /v1/math-sync with Accept: application/json and returns the raw JSON text.
+func (c *LatexClient) MathSyncJSON(math string) (string, error) {
+	req := MathRequest{Math: math}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/v1/math-sync", bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.Client.Do(httpReq)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		msg := readAPIErrorMessage(bytes.NewReader(b))
+		if msg == "" {
+			msg = strings.TrimSpace(string(b))
+		}
+		if msg == "" {
+			msg = resp.Status
+		}
+		return "", fmt.Errorf("math sync JSON failed: %s", msg)
+	}
+
+	return string(b), nil
 }
 
 // RenderSyncToFile calls POST /v1/renders-sync and writes the PDF to filename.

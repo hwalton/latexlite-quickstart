@@ -8,7 +8,7 @@ echo "🚀 LaTeX API Examples"
 
 # 1) Sync render (no polling) — writes PDF directly
 echo "1. Sync render (renders-sync) -> sync.pdf ..."
-curl -sS -X POST "$BASE_URL/v1/renders-sync" \
+curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -o sync.pdf \
@@ -21,7 +21,7 @@ echo "Downloaded sync.pdf"
 
 # (Optional) Sync render returning JSON (base64 PDF)
 echo "1b. Sync render (renders-sync) JSON response ..."
-curl -sS -X POST "$BASE_URL/v1/renders-sync" \
+curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
@@ -32,7 +32,7 @@ curl -sS -X POST "$BASE_URL/v1/renders-sync" \
 
 # 2) Async: Simple document
 echo "2. Creating simple document (async)..."
-RESPONSE=$(curl -sS -X POST "$BASE_URL/v1/renders" \
+RESPONSE=$(curl -sS -X POST "${BASE_URL}/v1/renders" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -48,14 +48,14 @@ echo "2. Waiting for completion..."
 sleep 2
 
 curl -sS -H "Authorization: Bearer $API_KEY" \
-  "$BASE_URL/v1/renders/$JOB_ID/pdf" \
+  "${BASE_URL}/v1/renders/$JOB_ID/pdf" \
   -o simple.pdf
 
 echo "Downloaded simple.pdf"
 
 # 3) Async: Business letter
 echo "3. Creating business letter (async)..."
-LETTER_RESPONSE=$(curl -sS -X POST "$BASE_URL/v1/renders" \
+LETTER_RESPONSE=$(curl -sS -X POST "${BASE_URL}/v1/renders" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -76,7 +76,7 @@ echo "3. Waiting for completion..."
 sleep 2
 
 curl -sS -H "Authorization: Bearer $API_KEY" \
-  "$BASE_URL/v1/renders/$LETTER_ID/pdf" \
+  "${BASE_URL}/v1/renders/$LETTER_ID/pdf" \
   -o letter.pdf
 
 echo "Downloaded letter.pdf"
@@ -84,6 +84,6 @@ echo "Downloaded letter.pdf"
 # 4) Check health
 echo "4. Checking API health..."
 curl -sS -H "Authorization: Bearer $API_KEY" \
-  "$BASE_URL/health" | jq '.'
+  "${BASE_URL}/health" | jq '.'
 
 echo "Examples complete!"

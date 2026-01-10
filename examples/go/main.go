@@ -14,17 +14,17 @@ import (
 )
 
 const (
-	DefaultURL = "https://latexlite.com"
+	BaseURL    = "https://latexlite.com"
 	DemoAPIKey = "<your-api-key>"
 )
 
 func main() {
 	// Get API credentials from environment or use defaults
-	apiURL := getEnv("API_URL", DefaultURL)
+	baseURL := getEnv("BASE_URL", BaseURL)
 	apiKey := getEnv("API_KEY", DemoAPIKey)
 
 	fmt.Printf("🚀 LaTeX Lite API Go Client\n")
-	fmt.Printf("API URL: %s\n", apiURL)
+	fmt.Printf("API URL: %s\n", baseURL)
 	fmt.Printf("API Key: %s...\n\n", previewKey(apiKey, 10))
 
 	// Escape LaTeX special characters in invoice item descriptions
@@ -32,7 +32,7 @@ func main() {
 		item["Description"] = escape(item["Description"].(string))
 	}
 
-	client := NewLatexClient(apiURL, apiKey)
+	client := NewLatexClient(baseURL, apiKey)
 
 	// Example 1: Sync render (no polling)
 	fmt.Println("⚡ Example 1: Sync Render (renders-sync)")

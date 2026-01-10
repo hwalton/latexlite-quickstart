@@ -4,15 +4,14 @@ Generate professional PDFs from LaTeX templates with a simple REST API.
 
 ## 🚀 Quick Start
 
-### 1. Sign Up for an API Key
+### 1. Sign Up for an API Key and set Environment Variables
 
-Visit [latexlite.com/get-demo-key](https://latexlite.com/get-demo-key) for a free demo API key. Export it as an environment variable for use:
+Visit [latexlite.com/get-demo-key](https://latexlite.com/get-demo-key) for a free demo API key. Export it as an environment variable for use, along with the base API URL:
 
 ```bash
 # Demo API key (rate limited)
 export API_KEY="<your-api-key>"
-export API_URL="https://latexlite.com"
-```
+export BASE_URL="https://latexlite.com"
 
 ## When to use Sync vs Async
 
@@ -112,7 +111,7 @@ Returns the compiled PDF file when status is "succeeded".
 
 ```bash
 # Sync: Render and save PDF directly (recommended for single small jobs)
-curl -sS -X POST "https://latexlite.com/v1/renders-sync" \
+curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -o out.pdf \
@@ -122,7 +121,7 @@ curl -sS -X POST "https://latexlite.com/v1/renders-sync" \
   }'
 
 # Sync: Render and return JSON (base64 PDF) for programmatic handling
-curl -sS -X POST "https://latexlite.com/v1/renders-sync" \
+curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
@@ -132,7 +131,7 @@ curl -sS -X POST "https://latexlite.com/v1/renders-sync" \
   }'
 
 # Async: Simple LaTeX without templating
-curl -X POST https://latexlite.com/v1/renders \
+curl -X POST "${BASE_URL}/v1/renders" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -140,7 +139,7 @@ curl -X POST https://latexlite.com/v1/renders \
   }'
 
 # Async: LaTeX with Go templating and [[ ]] delimiters
-curl -X POST https://latexlite.com/v1/renders \
+curl -X POST "${BASE_URL}/v1/renders" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -153,11 +152,11 @@ curl -X POST https://latexlite.com/v1/renders \
 
 # Async: Check status
 curl -H "Authorization: Bearer ${API_KEY}" \
-  https://latexlite.com/v1/renders/job_1234567890
+  "${BASE_URL}/v1/renders/job_1234567890"
 
 # Async: Download PDF when ready
 curl -H "Authorization: Bearer ${API_KEY}" \
-  https://latexlite.com/v1/renders/job_1234567890/pdf \
+  "${BASE_URL}/v1/renders/job_1234567890/pdf" \
   -o output.pdf
 ```
 

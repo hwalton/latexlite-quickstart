@@ -215,7 +215,7 @@ curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
   -H "Content-Type: application/json" \
   -o out.pdf \
   -d '{
-    "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}"
+    "template": "\\documentclass{article}\n\\begin{document}\nHello, World!\n\\end{document}"
   }'
 
 # Sync: Render and return JSON (base64 PDF) with dynamic input data for programmatic handling

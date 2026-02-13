@@ -2,7 +2,7 @@
 
 Generate professional PDFs from LaTeX templates with a simple REST API.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Sign Up for an API Key and set Environment Variables
 
@@ -16,24 +16,56 @@ export BASE_URL="https://latexlite.com"
 
 ## When to use Sync vs Async
 
-- **Sync (`/v1/renders-sync`)**: Best for **small, single** renders where you want the PDF immediately (e.g. “generate one PDF and download it now”). No polling required.
+- **Sync (`/v1/renders-sync`)**: Best for **small, single** renders where you want the PDF immediately (e.g. "generate one PDF and download it now"). No polling required.
 - **Async (`/v1/renders`)**: Best for **longer/heavier** renders and **parallel** workloads (many PDFs). Create jobs, poll for completion, then download. More reliable for work that may exceed short request timeouts.
 
 ## Endpoints
 
-### Render PDF (synchronous)
+### Synchronous PDF Render
 
 ```bash
 POST /v1/renders-sync
 ```
 
-- Returns **`application/pdf`** by default (recommended for `curl -o out.pdf`)
-- If you set **`Accept: application/json`**, it returns a JSON envelope containing `pdf_base64`
-- On error (e.g. invalid API key), it returns a JSON error body with a non-2xx status code.
+**Request:**
+```json
+{
+  "template": "\\documentclass{article}\n\\begin{document}\nHello [[.Name]]!\n\\end{document}",
+  "data": {
+    "Name": "World"
+  }
+}
+```
 
-## Async (job-based) rendering
+**Response (application/pdf):**
+Returns PDF binary directly (default behavior). Use `curl -o output.pdf` to save.
 
-### Create Render Job
+**Response (application/json):**
+If you set `Accept: application/json`:
+```json
+{
+  "success": true,
+  "data": {
+    "content_type": "application/pdf",
+    "pdf_base64": "JVBERi0xLjQKJeLjz9MKMyAwIG9iaiA8PC..."
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "LaTeX compilation failed: ! Undefined control sequence.",
+    "line": 0
+  }
+}
+```
+
+### Async (job-based) rendering
+
+#### Create Render Job
 
 ```bash
 POST /v1/renders
@@ -62,7 +94,7 @@ POST /v1/renders
 }
 ```
 
-### Get Render Status
+#### Get Render Status
 
 ```bash
 GET /v1/renders/{id}
@@ -82,7 +114,7 @@ GET /v1/renders/{id}
 }
 ```
 
-### Download PDF
+#### Download PDF
 
 ```bash
 GET /v1/renders/{id}/pdf
@@ -90,16 +122,46 @@ GET /v1/renders/{id}/pdf
 
 Returns the compiled PDF file when status is "succeeded".
 
-## Math (synchronous)
+### Math (synchronous)
 
-### Render LaTeX math (sync)
+#### Render LaTeX math (sync)
 
 ```bash
 POST /v1/math-sync
 ```
 
-- Returns a PNG image by default (recommended for `curl -o equation.png`)
-- If you set **`Accept: application/json`**, it returns a JSON response (useful for programmatic handling)
+**Request:**
+```json
+{
+  "math": "$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$"
+}
+```
+
+**Response (image/png):**
+Returns PNG binary directly (default behavior). Use `curl -o equation.png` to save.
+
+**Response (application/json):**
+If you set `Accept: application/json`:
+```json
+{
+  "success": true,
+  "data": {
+    "content_type": "image/png",
+    "png_base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "math must start and end with $ (or $$)",
+    "line": 0
+  }
+}
+```
 
 ## Job Status Values
 
@@ -107,17 +169,41 @@ POST /v1/math-sync
 - `running`: Job is currently being compiled
 - `succeeded`: PDF generated successfully
 - `failed`: Compilation failed (check error field)
-- `expired`: Job expired (24h TTL)
+- `expired`: Job expired (1h TTL)
+
+## HTTP Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| `200 OK` | Request successful |
+| `201 Created` | Render job created successfully |
+| `400 Bad Request` | Invalid template or data |
+| `401 Unauthorized` | Invalid API key |
+| `404 Not Found` | Job not found |
+| `408 Request Timeout` | Sync render timed out (use async for larger documents) |
+| `409 Conflict` | PDF not ready (still processing) |
+| `422 Unprocessable Entity` | LaTeX compilation failed |
+| `429 Too Many Requests` | Rate limit exceeded |
+| `502 Bad Gateway` | Renderer service error |
+| `503 Service Unavailable` | Renderer not configured |
 
 ## Request Limits
 
 ### Async (/v1/renders)
-- Max template size: 1MB
+- Max template size: 200KB
 - Max compilation time: 20 seconds
 - Max PDF size: 20MB
+- Job expiry: 1 hour
 
 ### Sync (/v1/renders-sync)
-- Intended for short renders (may time out for heavy workloads); for large/slow documents use async.
+- Max body size: 1MB (configurable via `SYNC_RENDER_MAX_BODY_BYTES`)
+- Timeout: 8 seconds (configurable via `SYNC_RENDER_TIMEOUT_SECONDS`)
+- Intended for short renders; may time out for heavy workloads
+
+### Math Sync (/v1/math-sync)
+- Max body size: 64KB (configurable via `MATH_SYNC_MAX_BODY_BYTES`)
+- Max math input: 32KB
+- Timeout: 8 seconds (configurable via `MATH_SYNC_TIMEOUT_SECONDS`)
 
 ## Example Usage
 
@@ -190,24 +276,60 @@ curl -sS -X POST "${BASE_URL}/v1/math-sync" \
   }'
 ```
 
-> Note: In JSON, backslashes must be escaped. That’s why LaTeX commands use `\\int`, `\\frac`, and `\\,` inside the JSON string.
+> Note: In JSON, backslashes must be escaped. That's why LaTeX commands use `\\int`, `\\frac`, and `\\,` inside the JSON string.
 
 ## Error Handling
 
-| Status | Meaning |
-|--------|---------|
-| `401` | Invalid API key |
-| `429` | Rate limit exceeded |
-| `400` | Invalid template or data |
-| `409` | PDF not ready (still processing) |
+All API responses follow this structure:
+
+**Success:**
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+**Error:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Error description",
+    "line": 0
+  }
+}
+```
+
+Common error messages:
+- `"Missing or invalid Authorization header"` (401)
+- `"Invalid API key"` (401)
+- `"API key rate limit exceeded. Try again in 1 minute."` (429)
+- `"IP rate limit exceeded. Maximum 50 requests per minute per IP."` (429)
+- `"missing required field: template"` (400)
+- `"template too large (max 200KB)"` (400)
+- `"LaTeX compilation failed: ...LaTeX error details..."` (422)
+- `"render timed out. Use async /v1/renders for larger documents."` (408)
+- `"PDF not ready"` (409)
+- `"Job not found"` (404)
 
 ## Best Practices
 
 1. **Pick sync vs async appropriately** - Sync for small single renders; async for heavier/parallel workloads
-2. **Escape LaTeX characters** - `\` must become `\\` in JSON strings. The Go quickstart code can escape for you.
+2. **Escape LaTeX characters in JSON** - Backslashes must be doubled: `\` becomes `\\` for LaTeX commands like `\\int`, `\\frac`, `\\$`, etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
+   ```json
+   {
+     "template": "\\documentclass{article}\n\\begin{document}\nHello \\textbf{World}!\n\\end{document}"
+   }
+   ```
 3. **Poll for completion (async)** - Check status every 2-5 seconds
-4. **Cache PDFs** - Jobs expire after 24 hours
-5. **Handle rate limits** - Respect the `X-RateLimit-*` headers
+4. **Cache PDFs** - Async jobs expire after 1 hour
+5. **Handle rate limits** - Respect the `X-RateLimit-*` headers:
+   - `X-RateLimit-Limit`: Maximum requests allowed per minute
+   - `X-RateLimit-Remaining`: Requests remaining in current window
+   - `X-RateLimit-Reset`: Unix timestamp when the limit resets
+6. **Math input format** - Math strings must start and end with `$` or `$$`
+7. **Error handling** - Always check `success` field and handle non-200 status codes
 
 ## License
 

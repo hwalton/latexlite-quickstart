@@ -211,14 +211,14 @@ If you set `Accept: application/json`:
 # Sync: Render and save PDF directly (recommended for single small jobs)
 curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
+  -H "Accept: application/pdf" \
   -H "Content-Type: application/json" \
   -o out.pdf \
   -d '{
-    "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
-    "data": { "Who": "world" }
+    "template": "\\documentclass{article}\n\\begin{document}\nHello, World!\n\\end{document}"
   }'
 
-# Sync: Render and return JSON (base64 PDF) for programmatic handling
+# Sync: Render and return JSON (base64 PDF) with dynamic input data for programmatic handling
 curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" \
@@ -276,7 +276,8 @@ curl -sS -X POST "${BASE_URL}/v1/math-sync" \
   }'
 ```
 
-> Note: In JSON, backslashes must be escaped. That's why LaTeX commands use `\\int`, `\\frac`, and `\\,` inside the JSON string.
+> Note: In JSON, backslashes must be escaped. That's why LaTeX commands use `\\int`, `\\frac`, and `\\,` inside the JSON string. However, \n (newline) and \t (tab) are JSON escape sequences and should remain single backslash.
+{
 
 ## Error Handling
 

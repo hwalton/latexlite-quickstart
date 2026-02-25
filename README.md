@@ -11,7 +11,7 @@ Visit [latexlite.com/get-demo-key](https://latexlite.com/get-demo-key) for a fre
 ```bash
 # Demo API key (rate limited)
 export API_KEY="<your-api-key>"
-export BASE_URL="https://latexlite.com"
+export URL="https://latexlite.com"
 ```
 
 ## Endpoints
@@ -149,14 +149,14 @@ If you set `Accept: application/json`:
 ### 0) Set your base URL and API key
 
 ```bash
-export BASE_URL="https://latexlite.com"
+export URL="https://latexlite.com"
 export API_KEY="your-api-key-here"
 ```
 
 ### 1) Inline template without data (JSON body)
 
 ```bash
-curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -o output.pdf \
@@ -168,7 +168,7 @@ curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
 ### 2) Inline template with data (JSON body)
 
 ```bash
-curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -o output.pdf \
@@ -183,7 +183,7 @@ curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
 Send a self-contained LaTeX file directly (no JSON escaping needed):
 
 ```bash
-curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: text/plain" \
   --data-binary @templates/simple.tex \
@@ -197,7 +197,7 @@ curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
 When your template has `[[.Field]]` placeholders and you want to inject data:
 
 ```bash
-curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -F "template=@templates/invoice.tex;type=text/plain" \
   -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Service","Qty":"1","UnitPrice":"$100","Total":"$100"}],"TotalDue":"$100"};type=application/json' \
@@ -207,7 +207,7 @@ curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
 **Alternative:** Read data from a JSON file:
 
 ```bash
-curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -F "template=@templates/invoice.tex;type=text/plain" \
   -F "data=$(cat data/invoice.json);type=application/json" \
@@ -233,7 +233,7 @@ Example `invoice.json`:
 Useful for inspecting the base64-encoded PDF:
 
 ```bash
-curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
@@ -246,7 +246,7 @@ curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
 ### 6) Math: render LaTeX equation to PNG
 
 ```bash
-curl -sS -X POST "${BASE_URL}/v1/math-sync" \
+curl -sS -X POST "${URL}/v1/math-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -o equation.png \
@@ -260,7 +260,7 @@ curl -sS -X POST "${BASE_URL}/v1/math-sync" \
 ### 7) Math: request JSON response
 
 ```bash
-curl -sS -X POST "${BASE_URL}/v1/math-sync" \
+curl -sS -X POST "${URL}/v1/math-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \

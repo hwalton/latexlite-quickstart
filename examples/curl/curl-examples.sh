@@ -8,30 +8,30 @@ echo "LaTeX API Examples"
 echo "=================="
 echo ""
 
-# 1) Inline template without data (JSON body)
-echo "1. Inline template without data -> output.pdf"
-curl -sS -X POST "${URL}/v1/renders-sync" \
-  -H "Authorization: Bearer ${API_KEY}" \
-  -H "Content-Type: application/json" \
-  -o output.pdf \
-  -d '{
-    "template": "\\documentclass{article}\n\\begin{document}\nHello, World!\n\\end{document}"
-  }'
-echo "   Downloaded output.pdf"
-echo ""
+# # 1) Inline template without data (JSON body)
+# echo "1. Inline template without data -> output.pdf"
+# curl -sS -X POST "${URL}/v1/renders-sync" \
+#   -H "Authorization: Bearer ${API_KEY}" \
+#   -H "Content-Type: application/json" \
+#   -o output.pdf \
+#   -d '{
+#     "template": "\\documentclass{article}\n\\begin{document}\nHello, World!\n\\end{document}"
+#   }'
+# echo "   Downloaded output.pdf"
+# echo ""
 
-# 2) Inline template with data (JSON body)
-echo "2. Inline template with data -> output-with-data.pdf"
-curl -sS -X POST "${URL}/v1/renders-sync" \
-  -H "Authorization: Bearer ${API_KEY}" \
-  -H "Content-Type: application/json" \
-  -o output-with-data.pdf \
-  -d '{
-    "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
-    "data": { "Who": "world" }
-  }'
-echo "   Downloaded output-with-data.pdf"
-echo ""
+# # 2) Inline template with data (JSON body)
+# echo "2. Inline template with data -> output-with-data.pdf"
+# curl -sS -X POST "${URL}/v1/renders-sync" \
+#   -H "Authorization: Bearer ${API_KEY}" \
+#   -H "Content-Type: application/json" \
+#   -o output-with-data.pdf \
+#   -d '{
+#     "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
+#     "data": { "Who": "world" }
+#   }'
+# echo "   Downloaded output-with-data.pdf"
+# echo ""
 
 # 3) Raw .tex file without data injection
 echo "3. Raw .tex file without data injection -> simple-from-file.pdf"
@@ -47,8 +47,8 @@ echo ""
 echo "4. File upload with data injection (inline JSON) -> invoice-inline.pdf"
 curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
-  -F "template=@../../templates/invoice.tex;type=text/plain" \
-  -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Service","Qty":"1","UnitPrice":"$100","Total":"$100"}],"TotalDue":"$100"};type=application/json' \
+  -F "template=@../../templates/invoice.tex" \
+  -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Web Design","Qty":"1","UnitPrice":"$2,500","Total":"$2,500"}],"TotalDue":"$2,500"}' \
   -o invoice-inline.pdf
 echo "   Downloaded invoice-inline.pdf"
 echo ""
@@ -57,8 +57,8 @@ echo ""
 echo "5. File upload with data injection (from JSON file) -> invoice.pdf"
 curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
-  -F "template=@../../templates/invoice.tex;type=text/plain" \
-  -F "data=$(cat ../../templates/invoice.json);type=application/json" \
+  -F "template=@../../templates/invoice.tex" \
+  -F "data=<../../templates/invoice.json" \
   -o invoice.pdf
 echo "   Downloaded invoice.pdf"
 echo ""

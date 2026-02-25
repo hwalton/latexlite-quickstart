@@ -1,20 +1,20 @@
 {
   "CompanyName": "Acme Digital Ltd",
   "InvoiceNumber": "INV-2024-0042",
-  "ClientName": "Widgets & Co Ltd",
+  "ClientName": "Widgets and Co Ltd",
   "Items": [
     {
       "Description": "Website Redesign",
       "Qty": "1",
-      "UnitPrice": "£2,500.00",
-      "Total": "£2,500.00"
+      "UnitPrice": "\\pounds 2,500.00",
+      "Total": "\\pounds 2,500.00"
     },
     {
       "Description": "SEO Optimization",
       "Qty": "1",
-      "UnitPrice": "£500.00",
-      "Total": "£500.00"
+      "UnitPrice": "\\pounds 500.00",
+      "Total": "\\pounds 500.00"
     }
   ],
-  "TotalDue": "£3,000.00"
+  "TotalDue": "\\pounds 3,000.00"
 }

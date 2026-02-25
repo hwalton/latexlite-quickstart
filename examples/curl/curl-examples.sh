@@ -33,34 +33,58 @@ echo ""
 # echo "   Downloaded output-with-data.pdf"
 # echo ""
 
-# 3) Raw .tex file without data injection
-echo "3. Raw .tex file without data injection -> simple-from-file.pdf"
-curl -sS -X POST "${URL}/v1/renders-sync" \
-  -H "Authorization: Bearer ${API_KEY}" \
-  -H "Content-Type: text/plain" \
-  --data-binary @../../templates/simple.tex \
-  -o simple-from-file.pdf
-echo "   Downloaded simple-from-file.pdf"
-echo ""
+# # 3) Raw .tex file without data injection
+# echo "3. Raw .tex file without data injection -> simple-from-file.pdf"
+# curl -sS -X POST "${URL}/v1/renders-sync" \
+#   -H "Authorization: Bearer ${API_KEY}" \
+#   -H "Content-Type: text/plain" \
+#   --data-binary @../../templates/simple.tex \
+#   -o simple-from-file.pdf
+# echo "   Downloaded simple-from-file.pdf"
+# echo ""
 
 # 4) File upload with data injection (multipart) - inline JSON
 echo "4. File upload with data injection (inline JSON) -> invoice-inline.pdf"
-curl -sS -X POST "${URL}/v1/renders-sync" \
+echo "   Sending inline JSON data..."
+response=$(curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
+  -H "Accept: application/json" \
   -F "template=@../../templates/invoice.tex" \
-  -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Web Design","Qty":"1","UnitPrice":"$2,500","Total":"$2,500"}],"TotalDue":"$2,500"}' \
-  -o invoice-inline.pdf
-echo "   Downloaded invoice-inline.pdf"
+  -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Web Design","Qty":"1","UnitPrice":"\\$2,500","Total":"\\$2,500"}],"TotalDue":"\\$2,500"}')
+echo "$response" | jq '.'
+if echo "$response" | jq -e '.success' > /dev/null 2>&1 && [ "$(echo "$response" | jq -r '.success')" = "true" ]; then
+  echo "$response" | jq -r '.data.pdf_base64' | base64 -d > invoice-inline.pdf
+  echo "   Downloaded invoice-inline.pdf"
+else
+  echo "   ERROR: Failed to generate PDF"
+fi
 echo ""
 
 # 5) File upload with data injection (multipart) - from JSON file
 echo "5. File upload with data injection (from JSON file) -> invoice.pdf"
-curl -sS -X POST "${URL}/v1/renders-sync" \
-  -H "Authorization: Bearer ${API_KEY}" \
-  -F "template=@../../templates/invoice.tex" \
-  -F "data=<../../templates/invoice.json" \
-  -o invoice.pdf
-echo "   Downloaded invoice.pdf"
+echo "   Reading data from: ../../templates/invoice.json"
+if [ -f "../../templates/invoice.json" ]; then
+  echo "   File exists, size: $(wc -c < ../../templates/invoice.json) bytes"
+  echo "   Content preview:"
+  cat ../../templates/invoice.json | head -5
+  echo "   ..."
+  echo ""
+  echo "   Sending request..."
+  response=$(curl -sS -X POST "${URL}/v1/renders-sync" \
+    -H "Authorization: Bearer ${API_KEY}" \
+    -H "Accept: application/json" \
+    -F "template=@../../templates/invoice.tex" \
+    -F "data=<../../templates/invoice.json")
+  echo "$response" | jq '.'
+  if echo "$response" | jq -e '.success' > /dev/null 2>&1 && [ "$(echo "$response" | jq -r '.success')" = "true" ]; then
+    echo "$response" | jq -r '.data.pdf_base64' | base64 -d > invoice.pdf
+    echo "   Downloaded invoice.pdf"
+  else
+    echo "   ERROR: Failed to generate PDF"
+  fi
+else
+  echo "   ERROR: File not found!"
+fi
 echo ""
 
 # # 6) Request JSON response (debugging)

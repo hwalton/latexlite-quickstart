@@ -146,13 +146,6 @@ If you set `Accept: application/json`:
 
 ## Example Usage
 
-### 0) Set your base URL and API key
-
-```bash
-export URL="https://latexlite.com"
-export API_KEY="your-api-key-here"
-```
-
 ### 1) Inline template without data (JSON body)
 
 ```bash
@@ -171,7 +164,7 @@ curl -sS -X POST "${URL}/v1/renders-sync" \
 curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
-  -o output.pdf \
+  -o output-with-data.pdf \
   -d '{
     "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
     "data": { "Who": "world" }
@@ -192,43 +185,60 @@ curl -sS -X POST "${URL}/v1/renders-sync" \
 
 > **Note:** You can use `text/plain`, `text/x-tex`, or `application/x-tex` as the Content-Type. The file must be self-contained (no `[[.Field]]` placeholders) when using this method.
 
-### 4) File upload with data injection (multipart)
+### 4) File upload with data injection (multipart) - inline JSON
 
-When your template has `[[.Field]]` placeholders and you want to inject data:
+When your template has `[[.Field]]` placeholders and you want to inject data inline:
 
 ```bash
 curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
-  -F "template=@templates/invoice.tex;type=text/plain" \
-  -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Service","Qty":"1","UnitPrice":"$100","Total":"$100"}],"TotalDue":"$100"};type=application/json' \
-  -o invoice-from-file.pdf
+  -F "template=@templates/invoice.tex" \
+  -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Web Design","Qty":"1","UnitPrice":"\\$2,500","Total":"\\$2,500"}],"TotalDue":"\\$2,500"}' \
+  -o invoice-inline.pdf
 ```
 
-**Alternative:** Read data from a JSON file:
+> **Note:** When writing JSON inline in curl, escape backslashes (`\\$` for dollar signs in LaTeX).
+
+### 5) File upload with data injection (multipart) - from JSON file
+
+Read data from a separate JSON file using `jq` to ensure proper formatting:
 
 ```bash
 curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
-  -F "template=@templates/invoice.tex;type=text/plain" \
-  -F "data=$(cat data/invoice.json);type=application/json" \
+  -F "template=@templates/invoice.tex" \
+  -F "data=$(cat data/invoice.json | jq -c '.')" \
   -o invoice.pdf
 ```
 
-Example `invoice.json`:
+Example `data/invoice.json`:
 
 ```json
 {
   "CompanyName": "Acme Digital Ltd",
   "InvoiceNumber": "INV-2024-0042",
-  "ClientName": "Widgets & Co Ltd",
+  "ClientName": "Widgets and Co Ltd",
   "Items": [
-    { "Description": "Website Redesign", "Qty": "1", "UnitPrice": "£2,500.00", "Total": "£3,000.00" }
+    {
+      "Description": "Website Redesign",
+      "Qty": "1",
+      "UnitPrice": "£2,500.00",
+      "Total": "£2,500.00"
+    },
+    {
+      "Description": "SEO Optimization",
+      "Qty": "1",
+      "UnitPrice": "£500.00",
+      "Total": "£500.00"
+    }
   ],
   "TotalDue": "£3,000.00"
 }
 ```
 
-### 5) Request JSON response (debugging)
+> **Tip:** Using `jq -c '.'` validates and compacts the JSON, properly handling special characters like `£`, `&`, etc.
+
+### 6) Request JSON response (debugging)
 
 Useful for inspecting the base64-encoded PDF:
 
@@ -240,10 +250,10 @@ curl -sS -X POST "${URL}/v1/renders-sync" \
   -d '{
     "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
     "data": { "Who": "world" }
-  }'
+  }' | jq '.'
 ```
 
-### 6) Math: render LaTeX equation to PNG
+### 7) Math: render LaTeX equation to PNG
 
 ```bash
 curl -sS -X POST "${URL}/v1/math-sync" \
@@ -257,7 +267,7 @@ curl -sS -X POST "${URL}/v1/math-sync" \
 
 > **Note:** In JSON, backslashes must be escaped. Use `\\int`, `\\frac`, `\\,` etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
 
-### 7) Math: request JSON response
+### 8) Math: request JSON response
 
 ```bash
 curl -sS -X POST "${URL}/v1/math-sync" \
@@ -266,7 +276,7 @@ curl -sS -X POST "${URL}/v1/math-sync" \
   -H "Content-Type: application/json" \
   -d '{
     "math": "$E = mc^2$"
-  }'
+  }' | jq '.'
 ```
 
 ## Error Handling
@@ -310,23 +320,28 @@ Common error messages:
    - Use **`text/plain`** (or `text/x-tex`, `application/x-tex`) for raw `.tex` files without data - no JSON escaping needed
    - Use **`multipart/form-data`** when uploading `.tex` files that contain `[[.Field]]` placeholders and need data injection
 
-2. **Escape LaTeX characters in JSON** - Backslashes must be doubled: `\` becomes `\\` for LaTeX commands like `\\int`, `\\frac`, `\\$`, etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
+2. **Use jq for JSON handling** - When reading JSON files for multipart uploads, use `jq -c '.'` to validate and compact the JSON. This properly handles special characters like `£`, `&`, `$`, etc.
+   ```bash
+   -F "data=$(cat data/invoice.json | jq -c '.')"
+   ```
+
+3. **Escape LaTeX characters in inline JSON** - When writing JSON inline in curl commands, backslashes must be doubled: `\` becomes `\\` for LaTeX commands like `\\int`, `\\frac`, `\\$`, etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
    ```json
    {
      "template": "\\documentclass{article}\n\\begin{document}\nHello \\textbf{World}!\n\\end{document}"
    }
    ```
 
-3. **Handle rate limits** - Respect the `X-RateLimit-*` headers:
+4. **Handle rate limits** - Respect the `X-RateLimit-*` headers:
    - `X-RateLimit-Limit`: Maximum requests allowed per minute
    - `X-RateLimit-Remaining`: Requests remaining in current window
    - `X-RateLimit-Reset`: Unix timestamp when the limit resets
 
-4. **Math input format** - Math strings must start and end with `$` or `$$`
+5. **Math input format** - Math strings must start and end with `$` or `$$`
 
-5. **Error handling** - Always check `success` field and handle non-200 status codes
+6. **Error handling** - Always check `success` field and handle non-200 status codes
 
-6. **Optimize templates** - Keep templates under 200KB and avoid computationally expensive LaTeX packages to stay within the 8-second timeout
+7. **Optimize templates** - Keep templates under 200KB and avoid computationally expensive LaTeX packages to stay within the 8-second timeout
 
 ## License
 

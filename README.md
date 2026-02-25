@@ -27,7 +27,15 @@ export BASE_URL="https://latexlite.com"
 POST /v1/renders-sync
 ```
 
-**Request:**
+**Supported Content-Type values:**
+
+| `Content-Type` | Use case | Template source | Data source |
+|---|---|---|---|
+| `application/json` | Inline template string with optional data | `template` field in JSON body | `data` field in JSON body (optional) |
+| `text/plain` / `text/x-tex` / `application/x-tex` | Raw `.tex` file without data injection | Raw request body | None |
+| `multipart/form-data` | File upload with data injection | `template` file part | `data` form field (inline JSON string) |
+
+**Request (JSON with template string):**
 ```json
 {
   "template": "\\documentclass{article}\n\\begin{document}\nHello [[.Name]]!\n\\end{document}",
@@ -228,6 +236,25 @@ curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
     "data": { "Who": "world" }
   }'
 
+# Sync: Raw .tex file without data injection (no JSON escaping needed)
+curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: text/plain" \
+  --data-binary @templates/simple.tex \
+  -o simple-from-file.pdf
+
+# Sync: File upload with data injection (multipart form data)
+# Useful when you have a .tex file with [[.Field]] placeholders
+curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -F "template=@templates/invoice.tex;type=text/plain" \
+  -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Service","Qty":"1","UnitPrice":"$100","Total":"$100"}],"TotalDue":"$100"};type=application/json' \
+  -o invoice-from-file.pdf
+```
+
+> **Note:** For raw `.tex` files, you can use `text/plain`, `text/x-tex`, or `application/x-tex` as the Content-Type. The file must be self-contained (no `[[.Field]]` placeholders) when using this method.
+
+```bash
 # Async: Simple LaTeX without templating
 curl -X POST "${BASE_URL}/v1/renders" \
   -H "Authorization: Bearer ${API_KEY}" \
@@ -317,20 +344,24 @@ Common error messages:
 ## Best Practices
 
 1. **Pick sync vs async appropriately** - Sync for small single renders; async for heavier/parallel workloads
-2. **Escape LaTeX characters in JSON** - Backslashes must be doubled: `\` becomes `\\` for LaTeX commands like `\\int`, `\\frac`, `\\$`, etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
+2. **Choose the right input type for sync renders**:
+   - Use **`application/json`** for inline templates with data injection
+   - Use **`text/plain`** (or `text/x-tex`, `application/x-tex`) for raw `.tex` files without data - no JSON escaping needed
+   - Use **`multipart/form-data`** when uploading `.tex` files that contain `[[.Field]]` placeholders and need data injection
+3. **Escape LaTeX characters in JSON** - Backslashes must be doubled: `\` becomes `\\` for LaTeX commands like `\\int`, `\\frac`, `\\$`, etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
    ```json
    {
      "template": "\\documentclass{article}\n\\begin{document}\nHello \\textbf{World}!\n\\end{document}"
    }
    ```
-3. **Poll for completion (async)** - Check status every 2-5 seconds
-4. **Cache PDFs** - Async jobs expire after 1 hour
-5. **Handle rate limits** - Respect the `X-RateLimit-*` headers:
+4. **Poll for completion (async)** - Check status every 2-5 seconds
+5. **Cache PDFs** - Async jobs expire after 1 hour
+6. **Handle rate limits** - Respect the `X-RateLimit-*` headers:
    - `X-RateLimit-Limit`: Maximum requests allowed per minute
    - `X-RateLimit-Remaining`: Requests remaining in current window
    - `X-RateLimit-Reset`: Unix timestamp when the limit resets
-6. **Math input format** - Math strings must start and end with `$` or `$$`
-7. **Error handling** - Always check `success` field and handle non-200 status codes
+7. **Math input format** - Math strings must start and end with `$` or `$$`
+8. **Error handling** - Always check `success` field and handle non-200 status codes
 
 ## License
 

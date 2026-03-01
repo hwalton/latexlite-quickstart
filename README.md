@@ -11,23 +11,33 @@ Visit [latexlite.com/get-demo-key](https://latexlite.com/get-demo-key) for a fre
 ```bash
 # Demo API key (rate limited)
 export API_KEY="<your-api-key>"
-export BASE_URL="https://latexlite.com"
+export URL="https://latexlite.com"
 ```
-
-## When to use Sync vs Async
-
-- **Sync (`/v1/renders-sync`)**: Best for **small, single** renders where you want the PDF immediately (e.g. "generate one PDF and download it now"). No polling required.
-- **Async (`/v1/renders`)**: Best for **longer/heavier** renders and **parallel** workloads (many PDFs). Create jobs, poll for completion, then download. More reliable for work that may exceed short request timeouts.
 
 ## Endpoints
 
-### Synchronous PDF Render
+### PDF Rendering
 
 ```bash
 POST /v1/renders-sync
 ```
 
-**Request:**
+**Behavior:**
+- Returns **`application/pdf`** by default (recommended for `curl -o out.pdf`)
+- If you set **`Accept: application/json`**, it returns JSON success with `pdf_base64`
+- On error (e.g. invalid API key), returns JSON error body with a non-2xx status
+
+Intended for short renders (defaults to ~**8 seconds** timeout). Heavy workloads may fail with `408 Request Timeout`.
+
+**Supported Content-Type values:**
+
+| `Content-Type` | Use case | Template source | Data source |
+|---|---|---|---|
+| `application/json` | Inline template string with optional data | `template` field in JSON body | `data` field in JSON body (optional) |
+| `text/plain` / `text/x-tex` / `application/x-tex` | Raw `.tex` file without data injection | Raw request body | None |
+| `multipart/form-data` | File upload with data injection | `template` file part | `data` form field (inline JSON string) |
+
+**Request (JSON with template string):**
 ```json
 {
   "template": "\\documentclass{article}\n\\begin{document}\nHello [[.Name]]!\n\\end{document}",
@@ -63,72 +73,16 @@ If you set `Accept: application/json`:
 }
 ```
 
-### Async (job-based) rendering
-
-#### Create Render Job
-
-```bash
-POST /v1/renders
-```
-
-**Request:**
-```json
-{
-  "template": "\\documentclass{article}\n\\begin{document}\nHello [[.Name]]!\n\\end{document}",
-  "data": {
-    "Name": "World"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "job_1234567890",
-    "status": "queued",
-    "created_at": "2024-01-15T10:30:00Z",
-    "expires_at": "2024-01-15T11:30:00Z"
-  }
-}
-```
-
-#### Get Render Status
-
-```bash
-GET /v1/renders/{id}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "job_1234567890",
-    "status": "succeeded",
-    "created_at": "2024-01-15T10:30:00Z",
-    "expires_at": "2024-01-15T11:30:00Z",
-    "pdf_url": "/v1/renders/job_1234567890/pdf"
-  }
-}
-```
-
-#### Download PDF
-
-```bash
-GET /v1/renders/{id}/pdf
-```
-
-Returns the compiled PDF file when status is "succeeded".
-
-### Math (synchronous)
-
-#### Render LaTeX math (sync)
+### Math Rendering
 
 ```bash
 POST /v1/math-sync
 ```
+
+**Behavior:**
+- Request JSON body must include a `math` string that **starts and ends with `$`** (or `$$`)
+- Returns **`image/png`** by default
+- If you set **`Accept: application/json`**, it returns JSON success with `png_base64`
 
 **Request:**
 ```json
@@ -163,25 +117,14 @@ If you set `Accept: application/json`:
 }
 ```
 
-## Job Status Values
-
-- `queued`: Job is waiting to be processed
-- `running`: Job is currently being compiled
-- `succeeded`: PDF generated successfully
-- `failed`: Compilation failed (check error field)
-- `expired`: Job expired (1h TTL)
-
 ## HTTP Status Codes
 
 | Status | Meaning |
 |--------|---------|
 | `200 OK` | Request successful |
-| `201 Created` | Render job created successfully |
 | `400 Bad Request` | Invalid template or data |
 | `401 Unauthorized` | Invalid API key |
-| `404 Not Found` | Job not found |
-| `408 Request Timeout` | Sync render timed out (use async for larger documents) |
-| `409 Conflict` | PDF not ready (still processing) |
+| `408 Request Timeout` | Render timed out (try optimizing your template) |
 | `422 Unprocessable Entity` | LaTeX compilation failed |
 | `429 Too Many Requests` | Rate limit exceeded |
 | `502 Bad Gateway` | Renderer service error |
@@ -189,95 +132,152 @@ If you set `Accept: application/json`:
 
 ## Request Limits
 
-### Async (/v1/renders)
+### PDF Rendering (/v1/renders-sync)
+- Max body size: **1 MiB** (configurable via `SYNC_RENDER_MAX_BODY_BYTES`)
+- Timeout: **8 seconds** (configurable via `SYNC_RENDER_TIMEOUT_SECONDS`)
 - Max template size: 200KB
 - Max compilation time: 20 seconds
 - Max PDF size: 20MB
-- Job expiry: 1 hour
 
-### Sync (/v1/renders-sync)
-- Max body size: 1MB (configurable via `SYNC_RENDER_MAX_BODY_BYTES`)
-- Timeout: 8 seconds (configurable via `SYNC_RENDER_TIMEOUT_SECONDS`)
-- Intended for short renders; may time out for heavy workloads
-
-### Math Sync (/v1/math-sync)
-- Max body size: 64KB (configurable via `MATH_SYNC_MAX_BODY_BYTES`)
+### Math Rendering (/v1/math-sync)
+- Max body size: **64 KiB** (configurable via `MATH_SYNC_MAX_BODY_BYTES`)
 - Max math input: 32KB
-- Timeout: 8 seconds (configurable via `MATH_SYNC_TIMEOUT_SECONDS`)
+- Timeout: **8 seconds** (configurable via `MATH_SYNC_TIMEOUT_SECONDS`)
 
 ## Example Usage
 
+### 1) Inline template without data (JSON body)
+
 ```bash
-# Sync: Render and save PDF directly (recommended for single small jobs)
-curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
-  -H "Accept: application/pdf" \
   -H "Content-Type: application/json" \
-  -o out.pdf \
+  -o output.pdf \
   -d '{
     "template": "\\documentclass{article}\n\\begin{document}\nHello, World!\n\\end{document}"
   }'
+```
 
-# Sync: Render and return JSON (base64 PDF) with dynamic input data for programmatic handling
-curl -sS -X POST "${BASE_URL}/v1/renders-sync" \
+### 2) Inline template with data (JSON body)
+
+```bash
+curl -sS -X POST "${URL}/v1/renders-sync" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -o output-with-data.pdf \
+  -d '{
+    "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
+    "data": { "Who": "world" }
+  }'
+```
+
+### 3) Raw `.tex` file without data injection
+
+Send a self-contained LaTeX file directly (no JSON escaping needed):
+
+```bash
+curl -sS -X POST "${URL}/v1/renders-sync" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: text/plain" \
+  --data-binary @templates/simple.tex \
+  -o simple-from-file.pdf
+```
+
+> **Note:** You can use `text/plain`, `text/x-tex`, or `application/x-tex` as the Content-Type. The file must be self-contained (no `[[.Field]]` placeholders) when using this method.
+
+### 4) File upload with data injection (multipart) - inline JSON
+
+When your template has `[[.Field]]` placeholders and you want to inject data inline:
+
+```bash
+curl -sS -X POST "${URL}/v1/renders-sync" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -F "template=@templates/invoice.tex" \
+  -F 'data={"CompanyName":"Acme Corp","InvoiceNumber":"INV-001","ClientName":"Client Ltd","Items":[{"Description":"Web Design","Qty":"1","UnitPrice":"\\$2,500","Total":"\\$2,500"}],"TotalDue":"\\$2,500"}' \
+  -o invoice-inline.pdf
+```
+
+> **Note:** When writing JSON inline in curl, escape backslashes (`\\$` for dollar signs in LaTeX).
+
+### 5) File upload with data injection (multipart) - from JSON file
+
+Read data from a separate JSON file using `jq` to ensure proper formatting:
+
+```bash
+curl -sS -X POST "${URL}/v1/renders-sync" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -F "template=@templates/invoice.tex" \
+  -F "data=$(cat data/invoice.json | jq -c '.')" \
+  -o invoice.pdf
+```
+
+Example `data/invoice.json`:
+
+```json
+{
+  "CompanyName": "Acme Digital Ltd",
+  "InvoiceNumber": "INV-2024-0042",
+  "ClientName": "Widgets and Co Ltd",
+  "Items": [
+    {
+      "Description": "Website Redesign",
+      "Qty": "1",
+      "UnitPrice": "£2,500.00",
+      "Total": "£2,500.00"
+    },
+    {
+      "Description": "SEO Optimization",
+      "Qty": "1",
+      "UnitPrice": "£500.00",
+      "Total": "£500.00"
+    }
+  ],
+  "TotalDue": "£3,000.00"
+}
+```
+
+> **Tip:** Using `jq -c '.'` validates and compacts the JSON, properly handling special characters like `£`, `&`, etc.
+
+### 6) Request JSON response (debugging)
+
+Useful for inspecting the base64-encoded PDF:
+
+```bash
+curl -sS -X POST "${URL}/v1/renders-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{
     "template": "\\documentclass{article}\n\\begin{document}\nHello, [[.Who]]!\n\\end{document}",
     "data": { "Who": "world" }
-  }'
+  }' | jq '.'
+```
 
-# Async: Simple LaTeX without templating
-curl -X POST "${BASE_URL}/v1/renders" \
-  -H "Authorization: Bearer ${API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "template": "\\documentclass{article}\\begin{document}Hello World!\\end{document}"
-  }'
+### 7) Math: render LaTeX equation to PNG
 
-# Async: LaTeX with Go templating and [[ ]] delimiters
-curl -X POST "${BASE_URL}/v1/renders" \
-  -H "Authorization: Bearer ${API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "template": "\\documentclass{article}\\begin{document}Invoice for [[.CustomerName]] \\\\ Amount: \\$[[.Amount]]\\end{document}",
-    "data": {
-      "CustomerName": "John Doe",
-      "Amount": "1250.00"
-    }
-  }'
-
-# Async: Check status
-curl -H "Authorization: Bearer ${API_KEY}" \
-  "${BASE_URL}/v1/renders/job_1234567890"
-
-# Async: Download PDF when ready
-curl -H "Authorization: Bearer ${API_KEY}" \
-  "${BASE_URL}/v1/renders/job_1234567890/pdf" \
-  -o output.pdf
-
-# Sync math: render LaTeX math and save as PNG
-curl -sS -X POST "${BASE_URL}/v1/math-sync" \
+```bash
+curl -sS -X POST "${URL}/v1/math-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -o equation.png \
   -d '{
     "math": "$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$"
   }'
+```
 
-# Sync math: request JSON response
-curl -sS -X POST "${BASE_URL}/v1/math-sync" \
+> **Note:** In JSON, backslashes must be escaped. Use `\\int`, `\\frac`, `\\,` etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
+
+### 8) Math: request JSON response
+
+```bash
+curl -sS -X POST "${URL}/v1/math-sync" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{
     "math": "$E = mc^2$"
-  }'
+  }' | jq '.'
 ```
-
-> Note: In JSON, backslashes must be escaped. That's why LaTeX commands use `\\int`, `\\frac`, and `\\,` inside the JSON string. However, \n (newline) and \t (tab) are JSON escape sequences and should remain single backslash.
-{
 
 ## Error Handling
 
@@ -310,27 +310,38 @@ Common error messages:
 - `"missing required field: template"` (400)
 - `"template too large (max 200KB)"` (400)
 - `"LaTeX compilation failed: ...LaTeX error details..."` (422)
-- `"render timed out. Use async /v1/renders for larger documents."` (408)
-- `"PDF not ready"` (409)
-- `"Job not found"` (404)
+- `"render timed out. Try optimizing your template."` (408)
+- `"math must start and end with $ (or $$)"` (400)
 
 ## Best Practices
 
-1. **Pick sync vs async appropriately** - Sync for small single renders; async for heavier/parallel workloads
-2. **Escape LaTeX characters in JSON** - Backslashes must be doubled: `\` becomes `\\` for LaTeX commands like `\\int`, `\\frac`, `\\$`, etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
+1. **Choose the right input type**:
+   - Use **`application/json`** for inline templates with data injection
+   - Use **`text/plain`** (or `text/x-tex`, `application/x-tex`) for raw `.tex` files without data - no JSON escaping needed
+   - Use **`multipart/form-data`** when uploading `.tex` files that contain `[[.Field]]` placeholders and need data injection
+
+2. **Use jq for JSON handling** - When reading JSON files for multipart uploads, use `jq -c '.'` to validate and compact the JSON. This properly handles special characters like `£`, `&`, `$`, etc.
+   ```bash
+   -F "data=$(cat data/invoice.json | jq -c '.')"
+   ```
+
+3. **Escape LaTeX characters in inline JSON** - When writing JSON inline in curl commands, backslashes must be doubled: `\` becomes `\\` for LaTeX commands like `\\int`, `\\frac`, `\\$`, etc. However, `\n` (newline) and `\t` (tab) are JSON escape sequences and should remain single backslash.
    ```json
    {
      "template": "\\documentclass{article}\n\\begin{document}\nHello \\textbf{World}!\n\\end{document}"
    }
    ```
-3. **Poll for completion (async)** - Check status every 2-5 seconds
-4. **Cache PDFs** - Async jobs expire after 1 hour
-5. **Handle rate limits** - Respect the `X-RateLimit-*` headers:
+
+4. **Handle rate limits** - Respect the `X-RateLimit-*` headers:
    - `X-RateLimit-Limit`: Maximum requests allowed per minute
    - `X-RateLimit-Remaining`: Requests remaining in current window
    - `X-RateLimit-Reset`: Unix timestamp when the limit resets
-6. **Math input format** - Math strings must start and end with `$` or `$$`
-7. **Error handling** - Always check `success` field and handle non-200 status codes
+
+5. **Math input format** - Math strings must start and end with `$` or `$$`
+
+6. **Error handling** - Always check `success` field and handle non-200 status codes
+
+7. **Optimize templates** - Keep templates under 200KB and avoid computationally expensive LaTeX packages to stay within the 8-second timeout
 
 ## License
 

@@ -11,31 +11,37 @@
 \vspace{1em}
 
 \noindent
-\textbf{Invoice \#:} {{.InvoiceNumber}} \\
-\textbf{Date:} {{.Date}} \\
+\textbf{[[.CompanyName]]}
+
+\vspace{2em}
+
+\noindent
+\textbf{Invoice \#:} [[.InvoiceNumber]]
 
 \vspace{1em}
 
 \noindent
 \textbf{Bill To:} \\
-{{.CustomerName}} \\
-{{.CustomerAddress}}
+[[.ClientName]]
 
 \vspace{2em}
 
-\begin{tabular}{|l|r|}
+\begin{tabular}{|p{6cm}|c|r|r|}
 \hline
-\textbf{Description} & \textbf{Amount} \\
+\textbf{Description} & \textbf{Qty} & \textbf{Unit Price} & \textbf{Total} \\
 \hline
-{{range .Items}}[[.Description]] & \\$[[.Amount]] \\
+[[range .Items]][[.Description]] & [[.Qty]] & [[.UnitPrice]] & [[.Total]] \\
 \hline
-{{end}}
-\multicolumn{1}{|r|}{\textbf{Total:}} & \textbf{\\$[[.Total]]} \\
-\hline
-\end{tabular}
+[[end]]\end{tabular}
+
+\vspace{1em}
+
+\noindent
+\textbf{Total Due:} [[.TotalDue]]
 
 \vspace{2em}
 
+\noindent
 Thank you for your business!
 
 \end{document}
